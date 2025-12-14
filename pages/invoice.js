@@ -8,13 +8,23 @@ export default function Invoice() {
     setItems([...items, { item: '', rate: '', quantity: '' }]);
 
   const submit = async () => {
-    await fetch('/api/invoice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, items })
-    });
-    alert('Invoice generated and emailed');
-  };
+  const res = await fetch('/api/invoice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, items })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'invoice.pdf';
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+};
+
 
   return (
     <>

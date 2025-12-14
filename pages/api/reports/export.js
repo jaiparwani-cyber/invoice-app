@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export default async function handler(req, res) {
   const { startDate, endDate } = req.query;
 
-  const data = await prisma.$queryRaw`
+  const query = `
     SELECT 
       c.name AS customer,
       SUM(ii.quantity) AS totalQty,
@@ -14,9 +14,11 @@ export default async function handler(req, res) {
     FROM Invoice i
     JOIN InvoiceItem ii ON ii.invoiceId = i.id
     JOIN Customer c ON c.id = i.customerId
-    WHERE i.createdAt BETWEEN ${startDate} AND ${endDate}
+    WHERE i.createdAt BETWEEN ? AND ?
     GROUP BY c.name;
   `;
+
+  const data = await prisma.$queryRawUnsafe(query, startDate, endDate);
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Sales');

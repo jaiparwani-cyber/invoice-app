@@ -62,5 +62,11 @@ export default async function handler(req, res) {
     attachments: [{ filename: 'invoice.pdf', content: pdfBytes }]
   });
 
-  res.json({ success: true });
+  res.setHeader('Content-Type', 'application/pdf');
+res.setHeader(
+  'Content-Disposition',
+  `attachment; filename="invoice-${invoiceNumber}.pdf"`
+);
+
+res.send(Buffer.from(pdfBytes));
 }
