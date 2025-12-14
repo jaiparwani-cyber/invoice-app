@@ -39,12 +39,70 @@ export default async function handler(req, res) {
   }
 
   // PDF
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage();
-  page.drawText(
-    `Arjun Das and Sons\nInvoice #: ${invoiceNumber}\nCustomer: ${name}`
-  );
-  const pdfBytes = await pdfDoc.save();
+const pdfDoc = await PDFDocument.create();
+const page = pdfDoc.addPage([595, 842]); // A4
+const pageHeight = page.getHeight();
+
+let y = pageHeight - 40;
+
+// Header
+page.drawText('ARJUN DAS AND SONS', { x: 50, y, size: 18 });
+y -= 30;
+
+page.drawText(`Invoice #: ${invoiceNumber}`, { x: 50, y, size: 12 });
+page.drawText(`Date: ${new Date().toLocaleDateString()}`, {
+  x: 350,
+  y,
+  size: 12
+});
+y -= 20;
+
+page.drawText(`Customer: ${name}`, { x: 50, y, size: 12 });
+y -= 30;
+
+// Table headers
+page.drawText('Item', { x: 50, y, size: 11 });
+page.drawText('Rate', { x: 300, y, size: 11 });
+page.drawText('Qty', { x: 380, y, size: 11 });
+page.drawText('Amount', { x: 450, y, size: 11 });
+y -= 15;
+
+page.drawLine({
+  start: { x: 50, y },
+  end: { x: 545, y }
+});
+y -= 15;
+
+// Table rows
+let grandTotal = 0;
+
+for (const i of items) {
+  const rate = Number(i.rate);
+  const qty = Number(i.quantity);
+  const amount = rate * qty;
+  grandTotal += amount;
+
+  page.drawText(i.item, { x: 50, y, size: 11 });
+  page.drawText(rate.toFixed(2), { x: 300, y, size: 11 });
+  page.drawText(qty.toString(), { x: 380, y, size: 11 });
+  page.drawText(amount.toFixed(2), { x: 450, y, size: 11 });
+
+  y -= 20;
+}
+
+// Total
+y -= 10;
+page.drawLine({
+  start: { x: 350, y },
+  end: { x: 545, y }
+});
+y -= 20;
+
+page.drawText('Grand Total', { x: 350, y, size: 12 });
+page.drawText(grandTotal.toFixed(2), { x: 450, y, size: 12 });
+
+const pdfBytes = await pdfDoc.save();
+
 
   // Email
   const transporter = nodemailer.createTransport({
