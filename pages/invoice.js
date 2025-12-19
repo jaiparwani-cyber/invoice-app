@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 
 export default function Invoice() {
   const [name, setName] = useState('');
@@ -16,21 +17,31 @@ export default function Invoice() {
     setItems([...items, { item: '', rate: '', quantity: '' }]);
   };
 
-  const submit = async () => {
-    const res = await fetch('/api/invoice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, items })
-    });
+const router = useRouter();
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'invoice.pdf';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+const submit = async () => {
+  const res = await fetch('/api/invoice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, items })
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'invoice.pdf';
+  a.click();
+
+  window.URL.revokeObjectURL(url);
+
+  // Redirect to home after download
+  setTimeout(() => {
+    router.push('/');
+  }, 500);
+};
+
 
   return (
     <>
