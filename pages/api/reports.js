@@ -4,34 +4,37 @@ const prisma = new PrismaClient();
 export default async function handler(req, res) {
   const { customerId, startDate, endDate } = req.query;
 
-  if (!startDate || !endDate) {
-    return res.status(400).json({ error: 'Missing dates' });
-  }
-
   let sql = `
     SELECT
-      c.name AS customer,
-      ii.itemName,
-      ii.rate,
-      ii.quantity,
+      c.name            AS customer,
+      ii.itemName       AS item,
+      ii.rate           AS rate,
+      ii.quantity       AS quantity,
       (ii.rate * ii.quantity) AS amount,
-      i.createdAt
+      i.invoiceNumber   AS invoiceNumber,
+      i.createdAt       AS invoiceDate
     FROM Invoice i
     JOIN InvoiceItem ii ON ii.invoiceId = i.id
     JOIN Customer c ON c.id = i.customerId
-    WHERE i.createdAt BETWEEN ? AND ?
+    WHERE 1 = 1
   `;
 
-  const params = [startDate, endDate];
+  const params = [];
+
+  if (startDate && endDate) {
+    sql += ` AND i.createdAt BETWEEN ? AND ?`;
+    params.push(startDate, endDate);
+  }
 
   if (customerId && customerId !== 'all') {
-    sql += ' AND c.id = ?';
+    sql += ` AND c.id = ?`;
     params.push(Number(customerId));
   }
 
-  sql += ' ORDER BY c.name, i.createdAt';
+  sql += ` ORDER BY i.createdAt DESC`;
 
   const data = await prisma.$queryRawUnsafe(sql, ...params);
 
   res.json(data);
 }
+
