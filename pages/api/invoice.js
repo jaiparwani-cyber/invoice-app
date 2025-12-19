@@ -46,7 +46,7 @@ const pageHeight = page.getHeight();
 let y = pageHeight - 40;
 
 // Header
-page.drawText('ARJUN DAS AND SONS', { x: 50, y, size: 18 });
+page.drawText('Vinay Traders', { x: 50, y, size: 18 });
 y -= 30;
 
 page.drawText(`Invoice #: ${invoiceNumber}`, { x: 50, y, size: 12 });

@@ -4,14 +4,23 @@ import { useRouter } from 'next/router';
 export default function Invoice() {
   const router = useRouter();
 
-  const [customer, setCustomer] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [customers, setCustomers] = useState([]);
+
   const [items, setItems] = useState([
     { item: '', rate: '', quantity: '' }
   ]);
   const [itemMaster, setItemMaster] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch item master (name + rate)
+  // Fetch customers
+  useEffect(() => {
+    fetch('/api/customers')
+      .then(res => res.json())
+      .then(setCustomers);
+  }, []);
+
+  // Fetch item master
   useEffect(() => {
     fetch('/api/items')
       .then(res => res.json())
@@ -29,8 +38,8 @@ export default function Invoice() {
   };
 
   const submit = async () => {
-    if (!customer) {
-      alert('Enter customer name');
+    if (!customerId) {
+      alert('Select customer');
       return;
     }
 
@@ -41,11 +50,15 @@ export default function Invoice() {
 
     setLoading(true);
 
+    const selectedCustomer = customers.find(
+      c => c.id === Number(customerId)
+    );
+
     const res = await fetch('/api/invoice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: customer,
+        name: selectedCustomer.name,
         items
       })
     });
@@ -60,7 +73,6 @@ export default function Invoice() {
 
     window.URL.revokeObjectURL(url);
 
-    // Redirect to home after download
     setTimeout(() => {
       router.push('/');
     }, 500);
@@ -70,11 +82,18 @@ export default function Invoice() {
     <div className="container">
       <h2>Create Invoice</h2>
 
-      <input
-        placeholder="Customer Name"
-        value={customer}
-        onChange={e => setCustomer(e.target.value)}
-      />
+      {/* CUSTOMER DROPDOWN */}
+      <select
+        value={customerId}
+        onChange={e => setCustomerId(e.target.value)}
+      >
+        <option value="">Select Customer</option>
+        {customers.map(c => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
 
       <table>
         <thead>
