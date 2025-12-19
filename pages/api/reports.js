@@ -8,39 +8,30 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing dates' });
   }
 
-  let query;
-  let params;
+  let sql = `
+    SELECT
+      c.name AS customer,
+      ii.itemName,
+      ii.rate,
+      ii.quantity,
+      (ii.rate * ii.quantity) AS amount,
+      i.createdAt
+    FROM Invoice i
+    JOIN InvoiceItem ii ON ii.invoiceId = i.id
+    JOIN Customer c ON c.id = i.customerId
+    WHERE i.createdAt BETWEEN ? AND ?
+  `;
+
+  const params = [startDate, endDate];
 
   if (customerId && customerId !== 'all') {
-    query = `
-      SELECT 
-        c.name AS customer,
-        SUM(ii.quantity) AS totalQty,
-        SUM(ii.quantity * ii.rate) AS totalAmount
-      FROM Invoice i
-      JOIN InvoiceItem ii ON ii.invoiceId = i.id
-      JOIN Customer c ON c.id = i.customerId
-      WHERE i.createdAt BETWEEN ? AND ?
-        AND c.id = ?
-      GROUP BY c.name;
-    `;
-    params = [startDate, endDate, Number(customerId)];
-  } else {
-    query = `
-      SELECT 
-        c.name AS customer,
-        SUM(ii.quantity) AS totalQty,
-        SUM(ii.quantity * ii.rate) AS totalAmount
-      FROM Invoice i
-      JOIN InvoiceItem ii ON ii.invoiceId = i.id
-      JOIN Customer c ON c.id = i.customerId
-      WHERE i.createdAt BETWEEN ? AND ?
-      GROUP BY c.name;
-    `;
-    params = [startDate, endDate];
+    sql += ' AND c.id = ?';
+    params.push(Number(customerId));
   }
 
-  const data = await prisma.$queryRawUnsafe(query, ...params);
+  sql += ' ORDER BY c.name, i.createdAt';
+
+  const data = await prisma.$queryRawUnsafe(sql, ...params);
 
   res.json(data);
 }

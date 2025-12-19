@@ -41,16 +41,30 @@ export default function Reports() {
       </button>
 
       <table>
-        <tbody>
-          {data.map((d, i) => (
-            <tr key={i}>
-              <td>{d.customer}</td>
-              <td>{d.totalQty}</td>
-              <td>{d.totalAmount}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  <thead>
+    <tr>
+      <th>Customer</th>
+      <th>Item</th>
+      <th>Rate</th>
+      <th>Qty</th>
+      <th>Amount</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    {data.map((row, i) => (
+      <tr key={i}>
+        <td>{row.customer}</td>
+        <td>{row.itemName}</td>
+        <td>{row.rate}</td>
+        <td>{row.quantity}</td>
+        <td>{row.amount}</td>
+        <td>{new Date(row.createdAt).toLocaleDateString()}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
     </>
   );
 }
