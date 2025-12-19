@@ -59,8 +59,9 @@ export default function Reports() {
         <td>{row.itemName}</td>
         <td>{row.rate}</td>
         <td>{row.quantity}</td>
-        <td>{row.amount}</td>
-        <td>{new Date(row.createdAt).toLocaleDateString()}</td>
+        <td>{row.item}</td>
+<td>{new Date(row.invoiceDate).toLocaleDateString()}</td>
+
       </tr>
     ))}
   </tbody>
