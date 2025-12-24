@@ -1,80 +1,93 @@
-import { PrismaClient } from '@prisma/client';
-import { PDFDocument } from 'pdf-lib';
+const pdf = await PDFDocument.create();
+const page = pdf.addPage([595, 842]);
 
-const prisma = new PrismaClient();
+const startX = 40;
+const startY = 760;
+const rowHeight = 20;
+const colWidths = [110, ...items.map(() => 60)]; // Customer + items
+const tableWidth = colWidths.reduce((a, b) => a + b, 0);
 
-export default async function handler(req, res) {
-  const { date } = req.body;
+let y = startY;
 
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
+// Title
+page.drawText(`Delivery Report: ${date}`, { x: startX, y: 800, size: 14 });
 
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
-
-  const invoices = await prisma.invoice.findMany({
-    where: { createdAt: { gte: start, lte: end } },
-    include: { customer: true, items: true }
+// Helper: draw horizontal line
+const drawHLine = (yPos) => {
+  page.drawLine({
+    start: { x: startX, y: yPos },
+    end: { x: startX + tableWidth, y: yPos }
   });
+};
 
-  const customers = {};
-  const itemSet = new Set();
-
-  invoices.forEach(inv => {
-    const cname = inv.customer.name;
-    customers[cname] ||= {};
-
-    inv.items.forEach(it => {
-      itemSet.add(it.itemName);
-      customers[cname][it.itemName] =
-        (customers[cname][it.itemName] || 0) + it.quantity;
+// Helper: draw vertical lines
+const drawVLines = (yTop, yBottom) => {
+  let x = startX;
+  colWidths.forEach(w => {
+    page.drawLine({
+      start: { x, y: yTop },
+      end: { x, y: yBottom }
     });
+    x += w;
   });
+  // right border
+  page.drawLine({
+    start: { x: startX + tableWidth, y: yTop },
+    end: { x: startX + tableWidth, y: yBottom }
+  });
+};
 
-  const items = Array.from(itemSet);
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595, 842]);
+/* ---------- Header Row ---------- */
+drawHLine(y);
+drawHLine(y - rowHeight);
+drawVLines(y, y - rowHeight);
 
-  let y = 800;
-  page.drawText(`Delivery Report: ${date}`, { x: 50, y, size: 14 });
-  y -= 30;
+page.drawText('Customer', { x: startX + 5, y: y - 14, size: 10 });
 
-  page.drawText('Customer', { x: 50, y, size: 10 });
+let xCursor = startX + colWidths[0];
+items.forEach((it, i) => {
+  page.drawText(it, { x: xCursor + 5, y: y - 14, size: 10 });
+  xCursor += colWidths[i + 1];
+});
+
+y -= rowHeight;
+
+/* ---------- Customer Rows ---------- */
+Object.entries(customers).forEach(([customer, data]) => {
+  drawHLine(y - rowHeight);
+  drawVLines(y, y - rowHeight);
+
+  page.drawText(customer, { x: startX + 5, y: y - 14, size: 10 });
+
+  let xPos = startX + colWidths[0];
   items.forEach((it, i) => {
-    page.drawText(it, { x: 150 + i * 60, y, size: 10 });
-  });
-  y -= 15;
-
-  Object.entries(customers).forEach(([customer, data]) => {
-    page.drawText(customer, { x: 50, y, size: 10 });
-    items.forEach((it, i) => {
-      page.drawText(
-        String(data[it] || 0),
-        { x: 150 + i * 60, y, size: 10 }
-      );
-    });
-    y -= 15;
-  });
-
-  y -= 10;
-  page.drawText('Total', { x: 50, y, size: 11 });
-
-  items.forEach((it, i) => {
-    const total = Object.values(customers)
-      .reduce((s, c) => s + (c[it] || 0), 0);
-
     page.drawText(
-      String(total),
-      { x: 150 + i * 60, y, size: 11 }
+      String(data[it] || 0),
+      { x: xPos + 5, y: y - 14, size: 10 }
     );
+    xPos += colWidths[i + 1];
   });
 
-  const pdfBytes = await pdf.save();
+  y -= rowHeight;
+});
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="report-${date}.pdf"`
+/* ---------- Totals Row ---------- */
+drawHLine(y - rowHeight);
+drawVLines(y, y - rowHeight);
+
+page.drawText('Total', { x: startX + 5, y: y - 14, size: 11 });
+
+let totalX = startX + colWidths[0];
+items.forEach((it, i) => {
+  const total = Object.values(customers)
+    .reduce((s, c) => s + (c[it] || 0), 0);
+
+  page.drawText(
+    String(total),
+    { x: totalX + 5, y: y - 14, size: 11 }
   );
-  res.send(Buffer.from(pdfBytes));
-}
+
+  totalX += colWidths[i + 1];
+});
+
+drawHLine(y);

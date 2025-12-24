@@ -50,10 +50,11 @@ export default async function handler(req, res) {
 
   // Helper: ddmmyyyy
   const now = new Date();
-  const formattedDate =
-    String(now.getDate()).padStart(2, '0') +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    now.getFullYear();
+const formattedDate =
+  String(now.getDate()).padStart(2, '0') + '/' +
+  String(now.getMonth() + 1).padStart(2, '0') + '/' +
+  String(now.getFullYear()).slice(-2);
+
 
   // Header
   page.drawText('Vinay Traders', { x: 20, y, size: 16 });
