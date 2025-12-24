@@ -10,8 +10,12 @@ export default function Home() {
           Create Invoice
         </Link>
 
+        <Link href="/report-by-date" className="home-btn">
+          Report by Date
+        </Link>
+
         <Link href="/reports" className="home-btn">
-          Reports
+          Reports by customer
         </Link>
 
         <Link href="/owner" className="home-btn">

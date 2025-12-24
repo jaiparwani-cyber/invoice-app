@@ -15,12 +15,12 @@ export default async function handler(req, res) {
     create: { name }
   });
 
+  // Invoice with pure incremental ID only
   const invoice = await prisma.invoice.create({
-    data: { customerId: customer.id, invoiceNumber: 'TEMP' }
+    data: { customerId: customer.id, invoiceNumber: '' }
   });
 
-  const now = new Date();
-  const invoiceNumber = `${invoice.id}${now.getHours()}${now.getMinutes()}`;
+  const invoiceNumber = invoice.id.toString();
 
   await prisma.invoice.update({
     where: { id: invoice.id },
@@ -38,73 +38,86 @@ export default async function handler(req, res) {
     });
   }
 
-  // PDF
-const pdfDoc = await PDFDocument.create();
-const page = pdfDoc.addPage([595, 842]); // A4
-const pageHeight = page.getHeight();
+  /* ---------------- PDF ---------------- */
 
-let y = pageHeight - 40;
+  const pdfDoc = await PDFDocument.create();
 
-// Header
-page.drawText('Vinay Traders', { x: 50, y, size: 18 });
-y -= 30;
+  // A6 size (portrait)
+  const page = pdfDoc.addPage([298, 420]);
+  const pageHeight = page.getHeight();
 
-page.drawText(`Invoice #: ${invoiceNumber}`, { x: 50, y, size: 12 });
-page.drawText(`Date: ${new Date().toLocaleDateString()}`, {
-  x: 350,
-  y,
-  size: 12
-});
-y -= 20;
+  let y = pageHeight - 30;
 
-page.drawText(`Customer: ${name}`, { x: 50, y, size: 12 });
-y -= 30;
+  // Helper: ddmmyyyy
+  const now = new Date();
+  const formattedDate =
+    String(now.getDate()).padStart(2, '0') +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    now.getFullYear();
 
-// Table headers
-page.drawText('Item', { x: 50, y, size: 11 });
-page.drawText('Rate', { x: 300, y, size: 11 });
-page.drawText('Qty', { x: 380, y, size: 11 });
-page.drawText('Amount', { x: 450, y, size: 11 });
-y -= 15;
+  // Header
+  page.drawText('Vinay Traders', { x: 20, y, size: 16 });
+  y -= 22;
 
-page.drawLine({
-  start: { x: 50, y },
-  end: { x: 545, y }
-});
-y -= 15;
+  page.drawText(`Invoice #: ${invoiceNumber}`, { x: 20, y, size: 11 });
+  page.drawText(`Date: ${formattedDate}`, { x: 170, y, size: 11 });
+  y -= 18;
 
-// Table rows
-let grandTotal = 0;
-
-for (const i of items) {
-  const rate = Number(i.rate);
-  const qty = Number(i.quantity);
-  const amount = rate * qty;
-  grandTotal += amount;
-
-  page.drawText(i.item, { x: 50, y, size: 11 });
-  page.drawText(rate.toFixed(2), { x: 300, y, size: 11 });
-  page.drawText(qty.toString(), { x: 380, y, size: 11 });
-  page.drawText(amount.toFixed(2), { x: 450, y, size: 11 });
-
+  page.drawText(`Customer: ${name}`, { x: 20, y, size: 11 });
   y -= 20;
-}
 
-// Total
-y -= 10;
-page.drawLine({
-  start: { x: 350, y },
-  end: { x: 545, y }
-});
-y -= 20;
+  // Table headers
+  page.drawText('Item', { x: 20, y, size: 11 });
+  page.drawText('Rate', { x: 140, y, size: 11 });
+  page.drawText('Qty', { x: 185, y, size: 11 });
+  page.drawText('Amount', { x: 220, y, size: 11 });
+  y -= 10;
 
-page.drawText('Grand Total', { x: 350, y, size: 12 });
-page.drawText(grandTotal.toFixed(2), { x: 450, y, size: 12 });
+  page.drawLine({
+    start: { x: 20, y },
+    end: { x: 275, y }
+  });
+  y -= 12;
 
-const pdfBytes = await pdfDoc.save();
+  // Rows
+  let grandTotal = 0;
 
+  for (const i of items) {
+    const rate = Number(i.rate);
+    const qty = Number(i.quantity);
+    const amount = rate * qty;
+    grandTotal += amount;
 
-  // Email
+    page.drawText(i.item, { x: 20, y, size: 11 });
+    page.drawText(rate.toFixed(2), { x: 140, y, size: 11 });
+    page.drawText(qty.toString(), { x: 185, y, size: 11 });
+    page.drawText(amount.toFixed(2), { x: 220, y, size: 11 });
+
+    y -= 10;
+
+    // Line after each item
+    page.drawLine({
+      start: { x: 20, y },
+      end: { x: 275, y }
+    });
+
+    y -= 12;
+  }
+
+  // Grand total separator (same width as others)
+  page.drawLine({
+    start: { x: 20, y },
+    end: { x: 275, y }
+  });
+  y -= 15;
+
+  page.drawText('Grand Total', { x: 120, y, size: 12 });
+  page.drawText(grandTotal.toFixed(2), { x: 220, y, size: 12 });
+
+  const pdfBytes = await pdfDoc.save();
+
+  /* ---------------- Email ---------------- */
+
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -121,10 +134,10 @@ const pdfBytes = await pdfDoc.save();
   });
 
   res.setHeader('Content-Type', 'application/pdf');
-res.setHeader(
-  'Content-Disposition',
-  `attachment; filename="invoice-${invoiceNumber}.pdf"`
-);
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="invoice-${invoiceNumber}.pdf"`
+  );
 
-res.send(Buffer.from(pdfBytes));
+  res.send(Buffer.from(pdfBytes));
 }

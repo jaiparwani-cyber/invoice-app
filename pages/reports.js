@@ -61,7 +61,7 @@ export default function Reports() {
         <td>{row.quantity}</td>
         <td>{row.item}</td>
 <td>{new Date(row.invoiceDate).toLocaleDateString()}</td>
-
+ 
       </tr>
     ))}
   </tbody>
