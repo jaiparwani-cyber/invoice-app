@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
 
-    let page = pdf.addPage([595, 842]); // A4 portrait
+    let page = pdf.addPage([595, 842]);
     const pageHeight = page.getHeight();
 
     const startX = 40;
@@ -63,18 +63,22 @@ export default async function handler(req, res) {
     const headerFontSize = 9;
     const padding = 14;
 
-    // 🔹 Dynamic header/footer height based on longest item name
+    // Dynamic height for vertical headers
     const headerRowHeight =
       Math.max(
-        ...items.map(it =>
+        ...items.concat(['Total']).map(it =>
           font.widthOfTextAtSize(it, headerFontSize)
         )
       ) + padding;
 
-    // 🔹 Narrow columns (vertical text does not need width)
-    const colWidths = [110, ...items.map(() => 40)];
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+    // Column widths: Customer + items + Total
+    const colWidths = [
+      110,
+      ...items.map(() => 40),
+      55 // Total column
+    ];
 
+    const tableWidth = colWidths.reduce((a, b) => a + b, 0);
     let y = startY;
 
     // Title
@@ -118,7 +122,7 @@ export default async function handler(req, res) {
     };
 
     /* =======================
-       HEADER ROW (VERTICAL)
+       HEADER ROW
     ======================= */
 
     newPageIfNeeded(headerRowHeight);
@@ -134,17 +138,26 @@ export default async function handler(req, res) {
     });
 
     let xCursor = startX + colWidths[0];
+
+    // Item headers
     items.forEach((it, i) => {
       const colCenterX = xCursor + colWidths[i + 1] / 2;
-
       page.drawText(it, {
         x: colCenterX + 4,
         y: y - headerRowHeight + 6,
         size: headerFontSize,
         rotate: degrees(90)
       });
-
       xCursor += colWidths[i + 1];
+    });
+
+    // Total header
+    const totalHeaderX = xCursor + colWidths[colWidths.length - 1] / 2;
+    page.drawText('Total', {
+      x: totalHeaderX + 4,
+      y: y - headerRowHeight + 6,
+      size: headerFontSize,
+      rotate: degrees(90)
     });
 
     y -= headerRowHeight;
@@ -166,13 +179,26 @@ export default async function handler(req, res) {
       });
 
       let xPos = startX + colWidths[0];
+      let rowTotal = 0;
+
       items.forEach((it, i) => {
-        page.drawText(String(data[it] || 0), {
+        const qty = data[it] || 0;
+        rowTotal += qty;
+
+        page.drawText(String(qty), {
           x: xPos + 14,
           y: y - 18,
           size: 10
         });
+
         xPos += colWidths[i + 1];
+      });
+
+      // Row total
+      page.drawText(String(rowTotal), {
+        x: xPos + 14,
+        y: y - 18,
+        size: 10
       });
 
       y -= dataRowHeight;
@@ -194,9 +220,13 @@ export default async function handler(req, res) {
     });
 
     let totalX = startX + colWidths[0];
+    let grandTotal = 0;
+
     items.forEach((it, i) => {
       const total = Object.values(customers)
         .reduce((s, c) => s + (c[it] || 0), 0);
+
+      grandTotal += total;
 
       page.drawText(String(total), {
         x: totalX + 14,
@@ -207,11 +237,18 @@ export default async function handler(req, res) {
       totalX += colWidths[i + 1];
     });
 
+    // Grand total
+    page.drawText(String(grandTotal), {
+      x: totalX + 14,
+      y: y - 18,
+      size: 11
+    });
+
     drawHLine(y);
     y -= dataRowHeight;
 
     /* =======================
-       BOTTOM ITEM NAMES (VERTICAL)
+       BOTTOM ITEM NAMES
     ======================= */
 
     newPageIfNeeded(headerRowHeight);
@@ -227,17 +264,25 @@ export default async function handler(req, res) {
     });
 
     let itemX = startX + colWidths[0];
+
     items.forEach((it, i) => {
       const colCenterX = itemX + colWidths[i + 1] / 2;
-
       page.drawText(it, {
         x: colCenterX + 4,
         y: y - headerRowHeight + 6,
         size: headerFontSize,
         rotate: degrees(90)
       });
-
       itemX += colWidths[i + 1];
+    });
+
+    // Bottom Total label
+    const bottomTotalX = itemX + colWidths[colWidths.length - 1] / 2;
+    page.drawText('Total', {
+      x: bottomTotalX + 4,
+      y: y - headerRowHeight + 6,
+      size: headerFontSize,
+      rotate: degrees(90)
     });
 
     drawHLine(y - headerRowHeight);
