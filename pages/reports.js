@@ -56,10 +56,10 @@ export default function Reports() {
     {data.map((row, i) => (
       <tr key={i}>
         <td>{row.customer}</td>
-        <td>{row.itemName}</td>
+        <td>{row.item}</td>
         <td>{row.rate}</td>
         <td>{row.quantity}</td>
-        <td>{row.item}</td>
+        <td>{row.amount}</td>
 <td>{new Date(row.invoiceDate).toLocaleDateString()}</td>
  
       </tr>
