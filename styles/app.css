@@ -83,3 +83,16 @@ th {
 .home-btn:hover {
   background: #374151;
 }
+/* Mobile layout */
+@media (max-width: 768px) {
+  .home-buttons {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .home-btn {
+    width: 80%;
+    text-align: center;
+  }
+}
