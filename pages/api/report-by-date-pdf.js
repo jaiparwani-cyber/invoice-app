@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, degrees } from 'pdf-lib';
 
 const prisma = new PrismaClient();
 
@@ -7,14 +7,16 @@ export default async function handler(req, res) {
   try {
     const { date } = req.body;
 
-    // ===== DATE RANGE =====
+    /* =======================
+       BUILD REPORT DATA
+    ======================= */
+
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(date);
     end.setHours(23, 59, 59, 999);
 
-    // ===== FETCH DATA =====
     const invoices = await prisma.invoice.findMany({
       where: {
         createdAt: { gte: start, lte: end }
@@ -25,7 +27,6 @@ export default async function handler(req, res) {
       }
     });
 
-    // ===== BUILD REPORT DATA =====
     const customers = {};
     const itemSet = new Set();
 
@@ -45,14 +46,17 @@ export default async function handler(req, res) {
 
     const items = Array.from(itemSet);
 
-    // ===== CREATE PDF =====
+    /* =======================
+       CREATE PDF
+    ======================= */
+
     const pdf = await PDFDocument.create();
-    let page = pdf.addPage([595, 842]);
+    let page = pdf.addPage([595, 842]); // A4 portrait
 
     const pageHeight = page.getHeight();
     const startX = 40;
     const startY = pageHeight - 80;
-    const rowHeight = 20;
+    const rowHeight = 28;
 
     const colWidths = [110, ...items.map(() => 60)];
     const tableWidth = colWidths.reduce((a, b) => a + b, 0);
@@ -65,6 +69,10 @@ export default async function handler(req, res) {
       y: pageHeight - 40,
       size: 14
     });
+
+    /* =======================
+       HELPERS
+    ======================= */
 
     const drawHLine = (yPos) => {
       page.drawLine({
@@ -95,35 +103,57 @@ export default async function handler(req, res) {
       }
     };
 
-    // Header
+    /* =======================
+       HEADER ROW (VERTICAL ITEMS)
+    ======================= */
+
     drawHLine(y);
     drawHLine(y - rowHeight);
     drawVLines(y, y - rowHeight);
 
-    page.drawText('Customer', { x: startX + 5, y: y - 14, size: 10 });
+    page.drawText('Customer', {
+      x: startX + 5,
+      y: y - 18,
+      size: 10
+    });
 
     let xCursor = startX + colWidths[0];
     items.forEach((it, i) => {
-      page.drawText(it, { x: xCursor + 5, y: y - 14, size: 10 });
+      const colCenterX = xCursor + colWidths[i + 1] / 2;
+
+      page.drawText(it, {
+        x: colCenterX - 5,
+        y: y - rowHeight + 4,
+        size: 9,
+        rotate: degrees(90)
+      });
+
       xCursor += colWidths[i + 1];
     });
 
     y -= rowHeight;
 
-    // Rows
+    /* =======================
+       CUSTOMER ROWS
+    ======================= */
+
     for (const [customer, data] of Object.entries(customers)) {
       newPageIfNeeded();
 
       drawHLine(y - rowHeight);
       drawVLines(y, y - rowHeight);
 
-      page.drawText(customer, { x: startX + 5, y: y - 14, size: 10 });
+      page.drawText(customer, {
+        x: startX + 5,
+        y: y - 18,
+        size: 10
+      });
 
       let xPos = startX + colWidths[0];
       items.forEach((it, i) => {
         page.drawText(
           String(data[it] || 0),
-          { x: xPos + 5, y: y - 14, size: 10 }
+          { x: xPos + 20, y: y - 18, size: 10 }
         );
         xPos += colWidths[i + 1];
       });
@@ -131,13 +161,20 @@ export default async function handler(req, res) {
       y -= rowHeight;
     }
 
-    // Totals
+    /* =======================
+       TOTAL ROW
+    ======================= */
+
     newPageIfNeeded();
 
     drawHLine(y - rowHeight);
     drawVLines(y, y - rowHeight);
 
-    page.drawText('Total', { x: startX + 5, y: y - 14, size: 11 });
+    page.drawText('Total', {
+      x: startX + 5,
+      y: y - 18,
+      size: 11
+    });
 
     let totalX = startX + colWidths[0];
     items.forEach((it, i) => {
@@ -145,8 +182,8 @@ export default async function handler(req, res) {
         .reduce((s, c) => s + (c[it] || 0), 0);
 
       page.drawText(String(total), {
-        x: totalX + 5,
-        y: y - 14,
+        x: totalX + 20,
+        y: y - 18,
         size: 11
       });
 
@@ -154,8 +191,44 @@ export default async function handler(req, res) {
     });
 
     drawHLine(y);
+    y -= rowHeight;
 
-    // SAVE + SEND
+    /* =======================
+       BOTTOM ITEM NAMES (VERTICAL)
+    ======================= */
+
+    newPageIfNeeded();
+
+    drawHLine(y);
+    drawHLine(y - rowHeight);
+    drawVLines(y, y - rowHeight);
+
+    page.drawText('Items', {
+      x: startX + 5,
+      y: y - 18,
+      size: 10
+    });
+
+    let itemX = startX + colWidths[0];
+    items.forEach((it, i) => {
+      const colCenterX = itemX + colWidths[i + 1] / 2;
+
+      page.drawText(it, {
+        x: colCenterX - 5,
+        y: y - rowHeight + 4,
+        size: 9,
+        rotate: degrees(90)
+      });
+
+      itemX += colWidths[i + 1];
+    });
+
+    drawHLine(y - rowHeight);
+
+    /* =======================
+       SAVE & SEND
+    ======================= */
+
     const pdfBytes = await pdf.save();
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -170,3 +243,4 @@ export default async function handler(req, res) {
     res.status(500).send(String(err));
   }
 }
+
